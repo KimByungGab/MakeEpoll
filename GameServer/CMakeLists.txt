@@ -9,6 +9,7 @@ add_subdirectory(Packet)
 add_executable(GameServer
 	GameServer.cpp
 	ServiceMain.cpp
+	GameService.cpp
 	${OBJECT_DIR_SOURCES}
 	${MANAGER_DIR_SOURCES}
 	${PACKET_DIR_SOURCES}

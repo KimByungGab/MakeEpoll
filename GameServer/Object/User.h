@@ -2,11 +2,14 @@
 
 #include <iostream>
 #include <string>
+#include <memory>
 
 #include "WaitPacketData.h"
 
 #include "Packet/PacketRecvChat.h"
 #include "Packet/PacketSendChat.h"
+
+#include "Library/Epoll/Client.h"
 
 using namespace std;
 
@@ -23,21 +26,15 @@ class User
 public:
     User();
     
-    void LogIn(const string& ip, const int userFD);
+    void LogIn(const string& ip, shared_ptr<Client> client);
     void LogOut();
     bool IsLogIn() { return m_userState == eUserState::LogIn ? true : false; }
 
-    //==========================================================================
-    // 수신 패킷 처리 함수들
-    //==========================================================================
-    vector<WaitPacketData> RCV_ChatMessage(DataArchive& ar);
-
-    //==========================================================================
-    // 송신 패킷 처리 함수들
-    //==========================================================================
+    void ChatMessage(const string& message);
 
 private:
     eUserState m_userState;
     string m_IP;
-    int m_userFD;
+    
+    shared_ptr<Client> m_client;
 };

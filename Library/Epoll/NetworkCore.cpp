@@ -226,7 +226,7 @@ void NetworkCore::AcceptThread(int timeout, int eventSize)
                     
                     char ip[32] = {0,};
                     inet_ntop(AF_INET, (&clientAddr.sin_addr), ip, 31);
-                    OnConnect(clientFD, ip);
+                    OnConnect(m_clients[clientFD], ip);
                 }
             }
         }
@@ -300,7 +300,7 @@ void NetworkCore::ServerThread(int timeout, int eventSize, int index)
                     }
                     
                     totalSize += count;
-                    m_clients[clientFD].WriteRecvPacket(buffer, count);
+                    m_clients[clientFD]->WriteRecvPacket(buffer, count);
                 }
 
                 if(closed)
@@ -315,7 +315,7 @@ void NetworkCore::ServerThread(int timeout, int eventSize, int index)
 
                     // 클라이언트 FD 제거
                     close(clientFD);
-                    m_clients[clientFD].Disconnect();
+                    m_clients[clientFD]->Disconnect();
 
                     OnClose(clientFD);
 
@@ -326,7 +326,7 @@ void NetworkCore::ServerThread(int timeout, int eventSize, int index)
                 char totalBuffer[totalSize];
                 memset(totalBuffer, 0, sizeof(totalBuffer));
 
-                m_clients[clientFD].ReadRecvBuffer(totalBuffer, totalSize);
+                m_clients[clientFD]->ReadRecvBuffer(totalBuffer, totalSize);
                 OnReceive(clientFD, totalBuffer, totalSize);
             }
 
@@ -336,7 +336,7 @@ void NetworkCore::ServerThread(int timeout, int eventSize, int index)
                 vector<char> sendData;
 
                 // TODO(KBG): 송신 큐에서 가져오고 전부 send하기
-                while(m_clients[clientFD].PopSendPacket(sendData))
+                while(m_clients[clientFD]->PopSendPacket(sendData))
                 {
                     ssize_t sendResult = send(clientFD, sendData.data(), sendData.size(), 0);
                     if(sendResult == -1 && errno == EAGAIN)     // 아직 보낼 수 있는 상황이 아님. 다음 EPOLLOUT까지 기다려
@@ -344,10 +344,7 @@ void NetworkCore::ServerThread(int timeout, int eventSize, int index)
                 }
 
                 // EPOLLOUT 제거하여 성능저하 제거
-                epoll_event ev;
-                ev.events = EPOLLIN | EPOLLET | EPOLLERR | EPOLLRDHUP;
-                ev.data.fd = clientFD;
-                epoll_ctl(m_workerEpollFDs[index], EPOLL_CTL_MOD, clientFD, &ev);
+                DisableWrite(clientFD, index);
             }
         }
     }
@@ -390,9 +387,11 @@ void NetworkCore::SetEpollFDs()
 
 void NetworkCore::InitClientInfo()
 {
+    shared_ptr<NetworkCore> core = shared_from_this();
+
     m_clients.reserve(m_serverInfo.maxClientSize);
     for(int i = 0; i < m_serverInfo.maxClientSize; i++)
-        m_clients.emplace_back(m_serverInfo.recvBufSize * 2);
+        m_clients.push_back(make_shared<Client>(i, m_serverInfo.recvBufSize * 2, core));
 }
 
 bool NetworkCore::ConnectClientInfo(int clientFD, int epollFDIndex)
@@ -400,20 +399,23 @@ bool NetworkCore::ConnectClientInfo(int clientFD, int epollFDIndex)
     if(clientFD < 0 || clientFD >= m_serverInfo.maxClientSize)
         return false;
         
-    return m_clients[clientFD].Connect(epollFDIndex);
+    return m_clients[clientFD]->Connect(epollFDIndex);
 }
 
-void NetworkCore::PushSendData(const int clientIndex, char* buffer, int bufferSize)
+void NetworkCore::EnableWrite(int clientFD, int epollFDIndex)
 {
-    if(clientIndex < 0 || clientIndex >= m_serverInfo.maxClientSize)
-        return;
-
-    m_clients[clientIndex].PushSendPacket(buffer, bufferSize);
-
-    // EPOLLOUT 추가하여 송신 대기
-    int epollFDIndex = m_clients[clientIndex].GetEpollFDIndex();
     epoll_event ev;
     ev.events = EPOLLIN | EPOLLOUT | EPOLLET | EPOLLERR | EPOLLRDHUP;
-    ev.data.fd = clientIndex;
-    epoll_ctl(m_workerEpollFDs[epollFDIndex], EPOLL_CTL_MOD, clientIndex, &ev);
+    ev.data.fd = clientFD;
+
+    epoll_ctl(m_workerEpollFDs[epollFDIndex], EPOLL_CTL_MOD, clientFD, &ev);
+}
+
+void NetworkCore::DisableWrite(int clientFD, int epollFDIndex)
+{
+    epoll_event ev;
+    ev.events = EPOLLIN | EPOLLET | EPOLLERR | EPOLLRDHUP;
+    ev.data.fd = clientFD;
+
+    epoll_ctl(m_workerEpollFDs[epollFDIndex], EPOLL_CTL_MOD, clientFD, &ev);
 }

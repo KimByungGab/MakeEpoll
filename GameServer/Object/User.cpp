@@ -4,39 +4,34 @@ User::User()
 {
     m_userState = eUserState::LogOut;
     m_IP.clear();
-    m_userFD = -1;
+    m_client = nullptr;
 }
 
-void User::LogIn(const string& ip, const int userFD)
+void User::LogIn(const string& ip, shared_ptr<Client> client)
 {
     m_userState = eUserState::LogIn;
     m_IP = ip;
-    m_userFD = userFD;
+    m_client = client;
 }
 
 void User::LogOut()
 {
     m_userState = eUserState::LogOut;
     m_IP.clear();
-    m_userFD = -1;
+    m_client = nullptr;
 }
 
-vector<WaitPacketData> User::RCV_ChatMessage(DataArchive& ar)
+void User::ChatMessage(const string& message)
 {
-    PacketRecvChat packet;
-    packet.Deserialize(ar);
+    if(m_client == nullptr)
+        return;
 
-    cout << "User(" << m_userFD << "): " << packet.message << endl;
+    cout << "User(" << m_client->GetFD() << "): " << message << endl;
 
     // 에코
     DataArchive sendAr;
-    PacketSendChat sendDTO(packet.message);
+    PacketSendChat sendDTO(message);
     sendDTO.Serialize(sendAr);
 
-    vector<WaitPacketData> sendPackets;
-    WaitPacketData waitPacketData;
-    waitPacketData.SetData(m_userFD, sendAr.GetBufferToPtr(), sendAr.GetBufferSize());
-    sendPackets.push_back(waitPacketData);
-
-    return sendPackets;
+    m_client->SendData(sendAr.GetBufferToPtr(), sendAr.GetBufferSize());
 }

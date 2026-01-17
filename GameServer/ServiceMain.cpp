@@ -5,10 +5,13 @@ ServiceMain::ServiceMain(_SERVER_INFO serverInfo) : NetworkCore(serverInfo)
     
 }
 
-void ServiceMain::OnConnect(const int clientIndex, string ip)
+void ServiceMain::OnConnect(shared_ptr<Client> client, string ip)
 {
-    cout << "LogIn! IP: " << ip << "(" << clientIndex << ")" << endl;
-    m_packetManager->LoginProcess(clientIndex, ip);
+    if(client == nullptr)
+        return;
+
+    cout << "LogIn! IP: " << ip << "(" << client->GetFD() << ")" << endl;
+    m_packetManager->LoginProcess(client, ip);
 }
 
 void ServiceMain::OnClose(const int clientIndex)
@@ -22,15 +25,10 @@ void ServiceMain::OnReceive(const int clientIndex, char* buffer, int bufferSize)
     m_packetManager->PushData(clientIndex, buffer, bufferSize);
 }
 
-void ServiceMain::SendPacket(const int clientIndex, const char* data, const int size)
-{
-    PushSendData(clientIndex, const_cast<char*>(data), size);
-}
-
 void ServiceMain::Run()
 {
     m_packetManager = make_unique<PacketManager>();
-    m_packetManager->Init(m_serverInfo.maxClientSize, this);
+    m_packetManager->Init(m_serverInfo.maxClientSize);
     m_packetManager->Run();
     
     StartServer();

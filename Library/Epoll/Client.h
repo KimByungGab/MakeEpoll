@@ -2,6 +2,11 @@
 
 #include "RingBuffer.h"
 #include <queue>
+#include <vector>
+#include <mutex>
+#include <memory>
+
+class NetworkCore;
 
 using namespace std;
 
@@ -20,7 +25,7 @@ enum class eRecvSend
 class Client
 {
 public:
-    Client(int recvBufferSize);
+    Client(int FD, int recvBufferSize, weak_ptr<NetworkCore> networkCore) : m_FD(FD), m_recvBuf(recvBufferSize), m_networkCore(networkCore) { Init(); }
 
     bool IsConnected() { return m_ConnectType == eConnectType::Connect ? true : false; }
     bool IsDisConnected() { return m_ConnectType == eConnectType::Disconnect ? true : false; }
@@ -28,18 +33,25 @@ public:
     bool Disconnect();
     void WriteRecvPacket(char* buffer, int size);
     void ReadRecvBuffer(char* buffer, int size);
-    void PushSendPacket(char* buffer, int size) { m_sendQueue.push(vector<char>(buffer, buffer + size)); }
+    void PushSendPacket(char* buffer, int size);
     bool PopSendPacket(vector<char>& outBuffer);
     int GetEpollFDIndex() { return m_epollFDIndex; }
+
+    int GetFD() { return m_FD; }
+    void SendData(char* buffer, int size);
 
 private:
     void Init();
 
 private:
+    int m_FD;
     int m_epollFDIndex;
 
     eConnectType m_ConnectType;
 
     RingBuffer m_recvBuf;
     queue<vector<char>> m_sendQueue;
+    mutex m_sendMutex;
+
+    weak_ptr<NetworkCore> m_networkCore;
 };

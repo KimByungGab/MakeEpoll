@@ -14,12 +14,12 @@
 
 using namespace std;
 
-class NetworkCore
+class NetworkCore : public enable_shared_from_this<NetworkCore>
 {
 public:
     NetworkCore(_SERVER_INFO socketInfo);
 
-    virtual void OnConnect(const int clientIndex, string ip) = 0;
+    virtual void OnConnect(shared_ptr<Client> client, string ip) = 0;
     virtual void OnClose(const int clientIndex) = 0;
     virtual void OnReceive(const int clientIndex, char* buffer, int bufferSize) = 0;
 
@@ -37,8 +37,13 @@ public:
      */
     void EndServer();
 
-protected:
-    void PushSendData(const int clientIndex, char* buffer, int bufferSize);
+    /**
+     * @brief 쓰기 이벤트 활성화
+     * @author 김병갑
+     * @param clientFD 클라이언트 파일 디스크립터
+     * @param epollFDIndex Epoll FD 인덱스
+     */
+    void EnableWrite(int clientFD, int epollFDIndex);
 
 private:
     /**
@@ -149,6 +154,13 @@ private:
      * @return 성공 혹은 실패
      */
     bool ConnectClientInfo(int clientFD, int epollFDIndex);
+    /**
+     * @brief 쓰기 이벤트 비활성화
+     * @author 김병갑
+     * @param clientFD 클라이언트 파일 디스크립터
+     * @param epollFDIndex Epoll FD 인덱스
+     */
+    void DisableWrite(int clientFD, int epollFDIndex);
     
 public:
     _SERVER_INFO m_serverInfo;                      // 서버를 시작하기 위해 받은 정보
@@ -167,5 +179,5 @@ private:
     vector<unique_ptr<mutex>> m_workerClientCountMutexs;        // 할당된 클라이언트 갯수 mutex.
     // vector<mutex>는 OS 리소스를 관리하는 특수개체라 이동 및 복사가 불가능. 때문에 unique_ptr을 만들어 unique_lock을 이용한다.
 
-    vector<Client> m_clients;                                   // 클라이언트
+    vector<shared_ptr<Client>> m_clients;                       // 클라이언트
 };

@@ -29,8 +29,8 @@ int main()
     serverInfo.maxClientSize = maxClientSize;
 
 
-    ServiceMain serviceMain(serverInfo);
-    serviceMain.Run();
+    auto serviceMain = make_shared<ServiceMain>(serverInfo);
+    serviceMain->Run();
 
     cout << "종료: quit" << endl;
 
@@ -44,7 +44,7 @@ int main()
             break;
     }
 
-    serviceMain.End();
+    serviceMain->End();
     
     return 0;
 }

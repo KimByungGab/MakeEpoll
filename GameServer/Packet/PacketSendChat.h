@@ -7,7 +7,7 @@ class PacketSendChat : public PacketSerialize
 public:
     PacketSendChat(string message)
     {
-        header.packetID = static_cast<unsigned short>(PacketID::PACKET_ID_CHAT_MESSAGE);
+        header.packetID = static_cast<unsigned short>(PacketID::PACKET_ID_CHAT_ECHO_MESSAGE);
         this->message = message;
     }
 

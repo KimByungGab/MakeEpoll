@@ -12,7 +12,7 @@ enum class PacketID : unsigned short
     PACKET_ID_LOGIN = 1,
     PACKET_ID_LOGOUT = 2,
 
-    PACKET_ID_CHAT_MESSAGE = 3,
+    PACKET_ID_CHAT_ECHO_MESSAGE = 3,
 };
 
 struct PacketHeader

@@ -7,12 +7,10 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "Define.h"
-
 #include "Object/WaitPacketData.h"
-#include "UserManager.h"
+#include "GameService.h"
 
-#include "Library/Singleton/Singleton.h"
+#include "Library/Epoll/Client.h"
 
 #include "Packet/PacketDef.h"
 #include "Packet/PacketRecvChat.h"
@@ -22,19 +20,18 @@ using namespace std;
 class PacketManager
 {
 public:
-    void Init(const int maxClientSize, IPacketSender* packetSender);
+    void Init(const int maxClientSize);
     void Run();
     void End();
 
     void PushData(const int clientIndex, char* buffer, int bufferSize);
     void SendData(const int clientIndex, DataArchive& ar);
 
-    void LoginProcess(const int clientIndex, const string& ip);
-    void LogoutProcess(const int clientIndex);
+    void LoginProcess(shared_ptr<Client> client, const string& ip) { m_gameService->LoginProcess(client, ip); }
+    void LogoutProcess(const int clientIndex) { m_gameService->LogoutProcess(clientIndex); }
 
 private:
     void PacketManagerThread();
-    void Parsing(WaitPacketData& waitPacketData);
 
 private:
     queue<WaitPacketData> m_packetQueue;
@@ -43,7 +40,5 @@ private:
     mutex m_packetProcessMutex;
     condition_variable m_packetCV;
 
-    unique_ptr<UserManager> m_userManager;
-
-    IPacketSender* m_packetSender = nullptr;
+    unique_ptr<GameService> m_gameService;
 };
